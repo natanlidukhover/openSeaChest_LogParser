@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <string>
 #include <iterator>
+#include <regex>
 
 using namespace opensea_parser;
 // trim from beginning of string (left)
@@ -1054,31 +1055,11 @@ std::string CPrintProm::printProm() {
  *  @return The modified key in Prometheus' format (string)
  */
 std::string CPrintProm::toPrometheusKey(std::string key) {
-    // Specifies the prefix to add to each metric and which character separates words
-    const std::string PREFIX = "seachest";
-    const std::string REPLACE = "_";
     // Removes spaces and other undesired characters with this regular expression
-    int replaceIndex = 0;
-    int replaceLength = 0;
-    // Replaces non-alphanumeric characters with one REPLACE string (consecutive characters get replaced by one REPLACE string)
-    for (std::string::size_type i = 0; i < key.size(); i++) {
-        if (!isdigit(key.at(i)) && !isalpha(key.at(i))) {
-            if (replaceLength == 0) {
-                replaceIndex = i;
-            }
-            replaceLength++;
-            if (i == key.size() - 1) {
-                key.replace(replaceIndex, replaceLength, REPLACE);
-                break;
-            }
-        } else {
-            if (replaceLength > 0) {
-                key.replace(replaceIndex, replaceLength, REPLACE);
-                replaceLength = 0;
-            }
-        }
-    }
-    return PREFIX + REPLACE + trim(key, REPLACE);
+    std::string PREFIX = "seachest";
+    std::regex reg("[^a-zA-Z0-9][^a-zA-Z0-9]*");
+    key = regex_replace(key, reg, std::string("_"));
+    return PREFIX + "_" + trim(key, "_");
 }
 
 /*
@@ -1162,27 +1143,12 @@ void CPrintProm::setSerialNumber(JSONNODE *nData) {
  *  @return True if the string is a number; false if the string is not a number
  */
 bool CPrintProm::isNumber(std::string s) {
-    // Matches an optional sign (+ or -) followed by a floating point number (one decimal followed by integers) or an integer
-    bool decimalPresent = false;
-    for (std::string::size_type i = 0; i < s.size(); i++) {
-        if (!isdigit(s.at(i))) {
-            if (s.at(i) == '.') {
-                if (i >= s.size() - 1) {
-                    return false;
-                } else if (decimalPresent) {
-                    return false;
-                }
-                decimalPresent = true;
-            } else if (s.at(i) == '+' || s.at(i) == '-') {
-                if (i != 0) {
-                    return false;
-                }
-            } else {
-                return false;
-            }
-        }
+    // This regex matches an optional sign followed a floating point number with optional integer part or an integer
+    std::regex r("^[-+]?[0-9]*\\.?[0-9]+");
+    if (std::regex_match(s, r)) {
+        return true;
     }
-    return true;
+    return false;
 }
 
 /*
